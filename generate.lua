@@ -30,8 +30,14 @@ local A
 local G = {}
 
 local function A(ats)
-    if type(ats) ~= "table" or ats.tag == nil then
+    if type(ats) ~= "table" then
         return ats
+    elseif ats.tag == nil then
+        local r = {}
+        for i = 1, #ats do
+            r[#r+1] = A(ats[i])
+        end
+        return r
     end
     print(ats.tag, #ats, ats[1])
     local R = G[ats.tag]
@@ -50,7 +56,6 @@ G = {
             end
             return r 
         end,
-    Number = function(a) return {a[1]} end,
     Op = function(a) 
             if #a < 3 then 
                 return {op[a[1]], A(a[2])} 
@@ -60,7 +65,7 @@ G = {
         end,
     --stat
     Do = function(a) return {A(a[1])} end,
-    Set = function(a) return {A(a[1]), "=", A(a[2])} end,
+    Set = function(a) return {A(a[1][1]), "=", A(a[2][1])} end,
     While = function(a) return {"while ", A(a[1]), " do ", A(a[2]), " end"} end,
     Repeat = function(a) return {"repeat ", A(a[1]), " until ", A(a[2])} end,
     If = function(a) 
@@ -80,7 +85,7 @@ G = {
     Fornum = function(a) -- here right now
         local r = {"for ", A(a[1]), "=", A(a[2]), ",", A(a[3])}
         for i=4, #a-1 do
-            r = {r, ",", A(a[4])}
+            r = {r, ",", A(a[i])}
         end
         return {r, " do ", A(a[#a]), " end"}
     end,
@@ -90,14 +95,24 @@ G = {
     Boolean = function(a) return {a[1]} end,
     Number = function(a) return {a[1]} end,
     String = function(a) return {'"'..a[1]..'"'} end,
-    Function = function(a)
-            local r = {}
-            local b = a[i]
-            for i=1, #b do
-                r = {r, A(b[i])}
-            end
-            return {"function", {r, A(a[2])}}
-        end,
+        Function = function(a)
+        local p = a[1] or {}
+        local b = a[2]
+        local r = {"function("}
+        for i = 1, #p - 1 do
+            r = {r, A(p[i]), ","}
+        end
+        if #p > 0 then
+            r = {r, A(p[#p])}
+        end
+        r = {r, ") ", A(b), " end"}
+        return r
+    end,
+    Return = function(a)
+        local r = {"return "}
+        for i=1, #a-1 do r = {r, A(a[i]), ","} end
+        return {r, A(a[#a])}
+    end,
     Table = function(a)
             local r = {"{"}
             for i=1, #a-1 do
@@ -130,7 +145,16 @@ G = {
 
     -- lhs: `Id{ <string> } | `Index{ expr expr }
     Id = function(a) return {a[1]} end,
-    Index = function(a) return {A(a[1]),".", a[2]} end,
+    Index = function(a)
+        local obj = A(a[1])
+        local key = a[2]
+
+        if key.tag == "Id" then
+            return {obj, ".", key[1]}
+        else
+            return {obj, "[", A(key), "]"}
+        end
+    end,
     Pair = function(a) return {a[1][1], " = ", A(a[2])} end
 }
     

@@ -1,3 +1,1 @@
-function test(x, y)
-    return 1
-end
+a = b.c
