@@ -20,9 +20,9 @@ local ast, error_msg = parser.parse(input, arg[1])
 local output = gpp.tostring(ast)
 
 local inputAST = pp.tostring(ast)
-print(input)
-print(inputAST)
-print(output)
+--print(input)
+--print(inputAST)
+--print(output)
 
 local ast2, error_msg2 = parser.parse(output, "generatedcode.lua")
 
