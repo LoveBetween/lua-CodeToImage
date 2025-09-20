@@ -289,7 +289,7 @@ function stm2str(stm)
         -- removing ""
         local fn = pretty(exp2tab(stm[1]))
         if string.sub(fn, 1, 1) == "\"" then
-          fn = string.sub(fn, 2, -2)
+            fn = string.sub(fn, 2, -2)
         end
         t = { fn, "("}
         if stm[2] then
