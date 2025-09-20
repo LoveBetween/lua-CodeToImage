@@ -2,7 +2,6 @@
 local parser = require "lua-parser.parser"
 local pp = require "lua-parser.pp"
 
-local translate = require "generate"
 local gpp = require "gpp"
 
 function readAll(file)
@@ -19,7 +18,11 @@ local input = readAll(arg[1])
 local ast, error_msg = parser.parse(input, arg[1])
 
 local output = gpp.tostring(ast)
---print(output)
+
+local inputAST = pp.tostring(ast)
+print(input)
+print(inputAST)
+print(output)
 
 local ast2, error_msg2 = parser.parse(output, "generatedcode.lua")
 
@@ -28,22 +31,20 @@ if (error_msg2) then
     os.exit(1)
 end
 
-local inputAST = pp.tostring(ast)
+
 local outputAST = pp.tostring(ast2)
 
-print(inputAST)
-print(outputAST)
 
-print(input)
+print("\n", "--------------------", "\n")
 print(output)
+-- print(outputAST)
 
+print("\n", "--------------------", "\n")
 if outputAST == pp.tostring(ast) then
     print("SAME CODE!")
 else 
     print("DIFFERENT CODE!")
 end
-
-
 print(("Elapsed time: " .. os.clock()-nClock))
 
 os.exit(0)

@@ -38,7 +38,7 @@ local function pretty(t)
     for i = 1, #t do
         parts[#parts + 1] = pretty(t[i])
     end
-    return table.concat(parts, "")
+    return table.concat(parts, " ")
 end 
 
 local block2str, stm2str, exp2tab, var2tab
@@ -96,7 +96,7 @@ local function fixed_string(str)
     return new_str
 end
 
-local function name2tab(name) return string.format('"%s"', name) end
+local function name2tab(name) return string.format('%s', name) end
 
 -- local function boolean2tab (b)
 --   return string.format('"%s"', tostring(b))
@@ -114,7 +114,7 @@ function var2tab(var)
     if tag == "Id" then -- `Id{ <string> }
         t = name2tab(var[1])
     elseif tag == "Index" then -- `Index{ expr expr }
-        t = exp2tab(var[1]), "[", exp2tab(var[2]), "]"
+        t = {exp2tab(var[1]), "[", exp2tab(var[2]), "]"}
     else
         error("expecting a variable, but got a " .. tag)
     end
@@ -127,6 +127,7 @@ function varlist2tab(varlist)
         l[#l + 1] = var2tab(v)
         l[#l + 1] = ","
     end
+    l[#l] = nil
     return l
 end
 
@@ -157,14 +158,18 @@ function fieldlist2tab(fieldlist)
     for k, v in ipairs(fieldlist) do
         local tag = v.tag
         if tag == "Pair" then -- `Pair{ expr expr }
-            l[k] = "`" .. tag .. "{ "
-            l[k] = l[k] .. exp2tab(v[1]) .. ", " .. exp2tab(v[2])
-            l[k] = l[k] .. " }"
+            if v[1].tag == "String" then
+                l[#l+1] = flat("[",exp2tab(v[1]),"]","=",exp2tab(v[2]))
+            else
+                l[#l+1] = flat(exp2tab(v[1]),"=",exp2tab(v[2]))
+            end
         else -- expr
-            l[k] = exp2tab(v)
+            l[#l+1] = flat(exp2tab(v))
         end
+        l[#l+1] = ","
     end
     if #l > 0 then
+        l[#l] = nil
         return l
     else
         return ""
@@ -176,7 +181,7 @@ function exp2tab(exp)
     local t = {}
     if tag == "Nil" then
         t = {"nil"}
-    elseif t == "Dots" then
+    elseif tag == "Dots" then
         t = {"..."}
     elseif tag == "Boolean" then -- `Boolean{ <boolean> }
         t = {tostring(exp[1])}
@@ -185,26 +190,28 @@ function exp2tab(exp)
     elseif tag == "String" then -- `String{ <string> }
         t = {string2str(exp[1])}
     elseif tag == "Function" then -- `Function{ { `Id{ <string> }* `Dots? } block }
-        t = {"function ", parlist2tab(exp[1]), ", ", block2str(exp[2]), " }"}
+        t = {"function (", parlist2tab(exp[1]), ")", block2str(exp[2]), " end "}
     elseif tag == "Table" then -- `Table{ ( `Pair{ expr expr } | expr )* }
-        t = {fieldlist2tab(exp)}
+        t = {"{",fieldlist2tab(exp),"}"}
     elseif tag == "Op" then -- `Op{ opid expr expr? }
         t = {op[exp[1]]," ", exp2tab(exp[2])}
         if exp[3] then t = {exp2tab(exp[2]),op[exp[1]], exp2tab(exp[3])} end
     elseif tag == "Paren" then -- `Paren{ expr }
-        t = {"{ ", exp2tab(exp[1]), " }"}
+        t = {"(",exp2tab(exp[1]),")"}
     elseif tag == "Call" then -- `Call{ expr expr* }
         t = {exp2tab(exp[1]), "("}
         if exp[2] then
-            for i = 2, #exp do t = flat(t, ", ", exp2tab(exp[i])) end
+            for i = 2, #exp do t = flat(t, exp2tab(exp[i]), ",") end
+            t[#t] = nil
         end
-        t = flat(t, exp2tab(exp[1]), "(")
+        t = flat(t, ")")
     elseif tag == "Invoke" then -- `Invoke{ expr `String{ <string> } expr* }
-        t = {"{ ", exp2tab(exp[1]), ", ", exp2tab(exp[2])}
+        t = { exp2tab(exp[1]), ":", name2tab(exp[2][1]), "("}
         if exp[3] then
-            for i = 3, #exp do t = flat(t, ", ", exp2tab(exp[i])) end
+            for i = 3, #exp do t = flat(t, exp2tab(exp[i]), ",") end
+            t[#t] = nil
         end
-        t = flat(t, "}")
+        t = flat(t, ")")
     elseif tag == "Id" or -- `Id{ <string> }
     tag == "Index" then -- `Index{ expr expr }
         t = {var2tab(exp)}
@@ -218,7 +225,7 @@ function explist2str(explist)
     local l = {}
     for k, v in ipairs(explist) do l[k] = exp2tab(v) end
     if #l > 0 then
-        return "{ " .. table.concat(l, ", ") .. " }"
+        return l
     else
         return ""
     end
@@ -232,9 +239,9 @@ function stm2str(stm)
         for k, v in ipairs(stm) do t[k] = stm2str(v) end
         return t
     elseif tag == "Set" then -- `Set{ {lhs+} {expr+} }
-        t = {varlist2tab(stm[1]), ",", explist2str(stm[2])}
+        t = {varlist2tab(stm[1]), "=", explist2str(stm[2]), " "}
     elseif tag == "While" then -- `While{ expr block }
-        t = {"while ", exp2tab(stm[1]), " do ", block2str(stm[2]), " end"}
+        t = {"while ", exp2tab(stm[1]), " do ", block2str(stm[2]), " end "}
     elseif tag == "Repeat" then -- `Repeat{ block expr }
         t = {"repeat ", block2str(stm[1]), " until ", exp2tab(stm[2])}
     elseif tag == "If" then -- `If{ (expr block)+ block? }
@@ -248,10 +255,10 @@ function stm2str(stm)
             end
         end
         if #stm % 2 == 1 then t = {t, " else ", block2str(stm[#stm])} end
-        t = flat(t, " end")
+        t = flat(t, " end ")
     elseif tag == "Fornum" then -- `Fornum{ ident expr expr expr? block }
         t = {
-            " for ", var2tab(stm[1]), "=", exp2tab(stm[2]) ",", exp2tab(stm[3]),
+            " for ", var2tab(stm[1]), "=", exp2tab(stm[2]), ",", exp2tab(stm[3]),
             " do "
         }
         if stm[5] then
@@ -262,7 +269,7 @@ function stm2str(stm)
     elseif tag == "Forin" then -- `Forin{ {ident+} {expr+} block }
         t = {
             "for ", varlist2tab(stm[1]), " in ", explist2str(stm[2]), " do ",
-            block2str(stm[3]), " end"
+            block2str(stm[3]), " end "
         }
     elseif tag == "Local" then -- `Local{ {ident+} {expr+}? }
         t = { " local ", varlist2tab(stm[1])}
@@ -270,7 +277,8 @@ function stm2str(stm)
             t = {t, "= ", explist2str(stm[2])}
         end
     elseif tag == "Localrec" then -- `Localrec{ ident expr }
-        t = {"local ", var2tab(stm[1][1]), "=", exp2tab(stm[2][1])}
+        print("tag", stm[2][1].tag)
+        t = {"local function", var2tab(stm[1][1]), "(",parlist2tab(stm[2][1][1]),")", block2str(stm[2][1][2]), " end "}
     elseif tag == "Goto" or -- `Goto{ <string> }
     tag == "Label" then -- `Label{ <string> }
         t = {"::", name2tab(stm[1]) ,"::"}
@@ -295,7 +303,7 @@ function stm2str(stm)
         end
         t = flat(t, ")")
     elseif tag == "Invoke" then -- `Invoke{ expr `String{ <string> } expr* }
-        t = {exp2tab(stm[1]),":",exp2tab(stm[2]), "("}
+        t = {exp2tab(stm[1]),":",name2tab(stm[2][1]), "("}
         if stm[3] then
             for i = 3, #stm do t = {t,  ", ", exp2tab(stm[i])} end
         end
@@ -311,7 +319,7 @@ function block2str(block)
     for k, v in ipairs(block) do 
       l[k] = stm2str(v) 
     end
-    return l
+    return {"\n",l, "\n"}
 end
 
 function pp.tostring(t)
