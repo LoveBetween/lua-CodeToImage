@@ -449,7 +449,7 @@ end
 
 function pp.tostring(t)
     assert(type(t) == "table")
-    return dump_circle(flatten_output(block2str(t)), 0, 35, 2.4)
+    return dump_circle(flatten_output(block2str(t)), 0, 35, 2.39)
 end
 
 function pp.print(t)
