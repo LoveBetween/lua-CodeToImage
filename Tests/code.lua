@@ -1,1 +1,1 @@
-a = b.c
+if true==false then print("hello") end

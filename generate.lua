@@ -82,13 +82,47 @@ G = {
             end
             return {r, " end"}
         end,
-    Fornum = function(a) -- here right now
+    Fornum = function(a)
         local r = {"for ", A(a[1]), "=", A(a[2]), ",", A(a[3])}
         for i=4, #a-1 do
             r = {r, ",", A(a[i])}
         end
         return {r, " do ", A(a[#a]), " end"}
     end,
+    -- Forin{ {ident+} {expr+} block }          -- for i1, i2... in e1, e2... do b end
+    --   | `Local{ {ident+} {expr+}? }               -- local i1, i2... = e1, e2...
+    --   | `Localrec{ ident expr }                   -- only used for 'local function'
+    --   | `Goto{ <string> }                         -- goto str
+    --   | `Label{ <string> }                        -- ::str::
+    Forin = function(a)
+        local r = {"for ", A(a[1])}
+        local i = 2
+        while i<=#a and a[i].tag == "Id" do
+            r = {r, ",", A(a[i])}
+            i = i + 1
+        end
+        r = {r, " in ", A(a[i])}
+        while i<#a and a[i].tag ~= "Block" do
+            r = {r, ",", A(a[i])}
+            i = i + 1
+        end
+        return {r, " do ", A(a[#a]), " end"}
+    end,
+    Local = function(a)
+        local r = {"local ", A(a[1])}
+        local i = 2
+        while i<=#a and a[i].tag == "Id" do
+            r = {r, ",", A(a[i])}
+            i = i + 1
+        end
+        r = {r, "=", A(a[i])}
+        while i<=#a do
+            r = {r, ",", A(a[i])}
+            i = i + 1
+        end
+        return r
+    end,
+
     -- expr
     Nil = function(a) return {"Nil"} end,
     Dots = function(a) return {"..."} end,
