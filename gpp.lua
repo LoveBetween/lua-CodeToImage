@@ -1,6 +1,5 @@
---[[
-This module impements a pretty printer to the AST
-]] op = {
+
+op = {
     ["add"] = '+',
     ["sub"] = '-',
     ["mul"] = '*',
@@ -412,11 +411,47 @@ function dump_triangle(o, space_nb, base_width, multi)
     end
 end
 
-function dump_circle(o, space_nb, radius, ratio)
-    local height = 1
+local function circle_fn(height, ratio, radius)
     local width = math.floor(math.sqrt(radius^2 - (radius-height)^2))*2
     local start = math.floor(((radius*2-width)/2)*ratio)
     width = math.floor(width * ratio)
+    return {width, start}
+end
+
+local function rectangle_fn(height, ratio, width)
+    return {width, 0}
+end
+
+local function sin_fn(height, ratio, max_width, period)
+    local width = math.abs(math.sin(height/period)*max_width)
+    local start = math.floor((max_width - width)/2 * ratio)
+    width = math.floor(width * ratio)
+    return {width, start}
+end
+
+local function diamond_fn(height, ratio, max_width)
+    local te = (math.floor(height/max_width)%2)
+    local width = (1-te) * (height%max_width) + te * (max_width-(height%max_width))
+    local start = math.floor((max_width - width)/2*ratio)
+    width = width*ratio
+    return {width, start}
+end
+
+local function random_worm_fn(height, ratio, width, first_start, bits, seed)
+    local start = first_start
+    for i = 0, height do
+        local divi = ((i*bits)%64)
+        start = start + (2^(bits-1) - (math.floor((seed * divi))%(2^bits) + 0.5))
+        print((math.floor((seed * divi)) % (2^bits)))
+    end
+    return {width, start}
+end
+
+function dump_circle(o, space_nb, ratio, shape_fn, ... )
+    local height = 1
+    local shape = shape_fn(height, ratio, ...)
+    local width = shape[1]
+    local start = shape[2]
     if type(o) == 'table' then
         local s = string.rep(" ", start)
         for k, v in pairs(o) do 
@@ -435,9 +470,9 @@ function dump_circle(o, space_nb, radius, ratio)
             if width <= 0 then
                 s = s .. "\n"
                 height = height+1
-                width = math.floor(math.sqrt(radius^2 - (radius-height)^2))*2
-                start = math.floor(((radius*2-width)/2)*ratio)
-                width = math.floor(width * ratio)
+                local shape = shape_fn(height, ratio, ...)
+                width = shape[1]
+                start = shape[2]
                 s = s.. string.rep(" ", start)
             end
         end
@@ -449,7 +484,7 @@ end
 
 function pp.tostring(t)
     assert(type(t) == "table")
-    return dump_circle(flatten_output(block2str(t)), 0, 35, 2.39)
+    return dump_circle(flatten_output(block2str(t)), 0, 2.40, diamond_fn, 20, 10)
 end
 
 function pp.print(t)

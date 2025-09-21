@@ -11,37 +11,32 @@ function readAll(file)
     return content
 end
 
+function writeFile(path, content)
+    local f = assert(io.open(path, "w"))
+    f:write(content)
+    f:close()
+end
+
 nClock = os.clock()
 
 local input = readAll(arg[1])
 
 local ast, error_msg = parser.parse(input, arg[1])
-
 local output = gpp.tostring(ast)
-
 local inputAST = pp.tostring(ast)
---print(input)
---print(inputAST)
---print(output)
 
-local ast2, error_msg2 = parser.parse(output, "generatedcode.lua")
+local ast2, error_msg2 = parser.parse(output, arg[1]) -- verifying
 
 if (error_msg2) then
     print(error_msg2)
     os.exit(1)
 end
 
+writeFile(arg[2], output)
 
 local outputAST = pp.tostring(ast2)
-
-
-print("\n", "--------------------", "\n")
-print(output)
--- print(outputAST)
-
-print("\n", "--------------------", "\n")
 if outputAST == pp.tostring(ast) then
-    print("SAME CODE!")
+    print("CORRECT CODE GENERATED!")
 else 
     print("DIFFERENT CODE!")
 end
