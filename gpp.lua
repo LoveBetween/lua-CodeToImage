@@ -35,10 +35,10 @@ local ps = {space = 1} -- potential
 local pp = {}
 
 local function pretty(t)
-    if type(t) ~= "table" then return tostring(t) end
+    if type(t) ~="table" then return tostring(t) end
     local parts = {}
     for i = 1, #t do parts[#parts + 1] = pretty(t[i]) end
-    return table.concat(parts, "")
+    return table.concat(parts,"")
 end
 
 local block2str, stm2str, exp2tab, var2tab
@@ -47,7 +47,7 @@ local explist2str, varlist2tab, parlist2tab, fieldlist2tab
 function flat(...)
     local t = {}
     for _, arg in pairs({...}) do
-        if type(arg) == "table" then
+        if type(arg) =="table" and not arg.space then
             for _, e in pairs(arg) do t[#t + 1] = e end
         else
             t[#t + 1] = arg
@@ -64,7 +64,7 @@ end
 local function isprint(x) return not iscntrl(x) end
 
 local function fixed_string(str)
-    local new_str = ""
+    local new_str =""
     for i = 1, string.len(str) do
         char = string.byte(str, i)
         if char == 34 then
@@ -111,12 +111,12 @@ local function string2str(s) return string.format('"%s"', fixed_string(s)) end
 function var2tab(var)
     local tag = var.tag
     local t = {}
-    if tag == "Id" then -- `Id{ <string> }
+    if tag =="Id" then -- `Id{ <string> }
         t = name2tab(var[1])
-    elseif tag == "Index" then -- `Index{ expr expr }
-        t = {exp2tab(var[1]), "[", exp2tab(var[2]), "]"}
+    elseif tag =="Index" then -- `Index{ expr expr }
+        t = {exp2tab(var[1]),"[", exp2tab(var[2]),"]"}
     else
-        error("expecting a variable, but got a " .. tag)
+        error("expecting a variable, but got a :" .. tag)
     end
     return t
 end
@@ -135,18 +135,18 @@ function parlist2tab(parlist)
     local l = {}
     local len = #parlist
     local is_vararg = false
-    if len > 0 and parlist[len].tag == "Dots" then
+    if len > 0 and parlist[len].tag =="Dots" then
         is_vararg = true
         len = len - 1
     end
     local i = 1
     while i <= len do
         l[#l + 1] = var2tab(parlist[i])
-        l[#l + 1] = ","
+        l[#l + 1] =","
         i = i + 1
     end
     if is_vararg then
-        l[#l + 1] = "..."
+        l[#l + 1] ="..."
     else
         table.remove(l, #l) -- remove the ","
     end
@@ -157,16 +157,16 @@ function fieldlist2tab(fieldlist)
     local l = {}
     for k, v in ipairs(fieldlist) do
         local tag = v.tag
-        if tag == "Pair" then -- `Pair{ expr expr }
-            if v[1].tag == "String" then
-                l[#l + 1] = flat("[", exp2tab(v[1]), "]", "=", exp2tab(v[2]))
+        if tag =="Pair" then -- `Pair{ expr expr }
+            if v[1].tag =="String" then
+                l[#l + 1] = flat("[", exp2tab(v[1]),"]","=", exp2tab(v[2]))
             else
-                l[#l + 1] = flat(exp2tab(v[1]), "=", exp2tab(v[2]))
+                l[#l + 1] = flat(exp2tab(v[1]),"=", exp2tab(v[2]))
             end
         else -- expr
             l[#l + 1] = flat(exp2tab(v))
         end
-        l[#l + 1] = ","
+        l[#l + 1] =","
     end
     if #l > 0 then
         l[#l] = nil
@@ -192,28 +192,28 @@ function exp2tab(exp)
     elseif tag == "Function" then -- `Function{ { `Id{ <string> }* `Dots? } block }
         t = {ns,"function(", parlist2tab(exp[1]), ")",ns, block2str(exp[2]), ns ,"end", ns}
     elseif tag == "Table" then -- `Table{ ( `Pair{ expr expr } | expr )* }
-        t = {"{", fieldlist2tab(exp), "} "}
+        t = {"{", fieldlist2tab(exp), "}", ns}
     elseif tag == "Op" then -- `Op{ opid expr expr? }
-        t = {op[exp[1]], " ", exp2tab(exp[2])}
+        t = {op[exp[1]], ns, exp2tab(exp[2])}
         if exp[3] then
-            t = {exp2tab(exp[2]), " ", op[exp[1]], " ", exp2tab(exp[3])}
+            t = {exp2tab(exp[2]), ns, op[exp[1]], ns, exp2tab(exp[3])}
         end
-    elseif tag == "Paren" then -- `Paren{ expr }
-        t = {"(", exp2tab(exp[1]), ") "}
+    elseif tag =="Paren" then -- `Paren{ expr }
+        t = {"(", exp2tab(exp[1]),")", ns}
     elseif tag == "Call" then -- `Call{ expr expr* }
-        t = {exp2tab(exp[1]), "("}
+        t = {exp2tab(exp[1]),"("}
         if exp[2] then
             for i = 2, #exp do t = flat(t, exp2tab(exp[i]), ",") end
             t[#t] = nil
         end
-        t = flat(t, ") ")
+        t = flat(t, ")", ns)
     elseif tag == "Invoke" then -- `Invoke{ expr `String{ <string> } expr* }
         t = {exp2tab(exp[1]), ":", name2tab(exp[2][1]), "("}
         if exp[3] then
             for i = 3, #exp do t = flat(t, exp2tab(exp[i]), ",") end
             t[#t] = nil
         end
-        t = flat(t, ") ")
+        t = flat(t, ")", ns)
     elseif tag == "Id" or -- `Id{ <string> }
     tag == "Index" then -- `Index{ expr expr }
         t = {var2tab(exp)}
@@ -240,54 +240,54 @@ function stm2str(stm)
         for k, v in ipairs(stm) do t[k] = stm2str(v) end
         return t
     elseif tag == "Set" then -- `Set{ {lhs+} {expr+} }
-        t = {varlist2tab(stm[1]), "=", explist2str(stm[2]), " "}
+        t = {varlist2tab(stm[1]), "=", explist2str(stm[2]), ns}
     elseif tag == "While" then -- `While{ expr block }
-        t = {" while ", exp2tab(stm[1]), " do ", block2str(stm[2]), " end "}
+        t = {ns, "while", ns, exp2tab(stm[1]), " do ", block2str(stm[2]), ns, "end", ns}
     elseif tag == "Repeat" then -- `Repeat{ block expr }
-        t = {" repeat ", block2str(stm[1]), " until ", exp2tab(stm[2])}
+        t = {ns, "repeat", ns, block2str(stm[1]), ns, "until" , ns, exp2tab(stm[2])}
     elseif tag == "If" then -- `If{ (expr block)+ block? }
         for i = 1, #stm - 1, 2 do
             if i == 1 then
                 t = {
-                    t, " if ", exp2tab(stm[i]), " then ", block2str(stm[i + 1])
+                    t, ns, "if",ns, exp2tab(stm[i]), ns,"then",ns, block2str(stm[i + 1])
                 }
             else
                 t = {
-                    t, " elseif ", exp2tab(stm[i]), " then ",
+                    t, ns,"elseif", ns,exp2tab(stm[i]), ns,"then",ns,
                     block2str(stm[i + 1])
                 }
             end
         end
-        if #stm % 2 == 1 then t = {t, " else ", block2str(stm[#stm])} end
-        t = flat(t, " end ")
+        if #stm % 2 == 1 then t = {t,ns, "else", ns,block2str(stm[#stm])} end
+        t = flat(t, ns,"end" ,ns)
     elseif tag == "Fornum" then -- `Fornum{ ident expr expr expr? block }
         t = {
-            " for ", var2tab(stm[1]), "=", exp2tab(stm[2]), ",", exp2tab(stm[3])
+            ns,"for", ns, var2tab(stm[1]), "=", exp2tab(stm[2]), ",", exp2tab(stm[3])
         }
         if stm[5] then
-            t = {t, ",", exp2tab(stm[4]), " do ", block2str(stm[5]), " end "}
+            t = {t, ",", exp2tab(stm[4]), ns,"do",ns, block2str(stm[5]), ns,"end", ns}
         else
-            t = {t, " do ", block2str(stm[4]), " end "}
+            t = {t, ns,"do",ns, block2str(stm[4]), ns,"end", ns}
         end
     elseif tag == "Forin" then -- `Forin{ {ident+} {expr+} block }
         t = {
-            " for ", varlist2tab(stm[1]), " in ", explist2str(stm[2]), " do ",
-            block2str(stm[3]), " end "
+            ns,"for",ns, varlist2tab(stm[1]), ns,"in",ns, explist2str(stm[2]), ns,"do",ns,
+            block2str(stm[3]), ns,"end", ns
         }
     elseif tag == "Local" then -- `Local{ {ident+} {expr+}? }
-        t = {" local ", varlist2tab(stm[1])}
+        t = {ns,"local", ns,varlist2tab(stm[1])}
         if #stm[2] > 0 then t = {t, "=", explist2str(stm[2])} end
-        t = flat(t, " ")
+        t = flat(t, ns)
     elseif tag == "Localrec" then -- `Localrec{ ident expr }
         t = {
-            "local function ", var2tab(stm[1][1]), "(",
-            parlist2tab(stm[2][1][1]), ") ", block2str(stm[2][1][2]), " end "
+            "local",ns, "function", ns, var2tab(stm[1][1]), "(",
+            parlist2tab(stm[2][1][1]), ")",ns, block2str(stm[2][1][2]), ns,"end", ns
         }
     elseif tag == "Goto" or -- `Goto{ <string> }
     tag == "Label" then -- `Label{ <string> }
         t = {"::", name2tab(stm[1]), "::"}
     elseif tag == "Return" then -- `Return{ <expr>* }
-        t = {"return ", explist2str(stm)}
+        t = {"return", ns, explist2str(stm)}
     elseif tag == "Break" then
     elseif tag == "Call" then -- `Call{ expr expr* }
         -- removing ""
@@ -297,19 +297,19 @@ function stm2str(stm)
         if stm[2] then
             for i = 2, #stm do
                 if i < #stm then
-                    t = {t, exp2tab(stm[i]), ", "}
+                    t = {t, exp2tab(stm[i]), ",", ns}
                 else
                     t = {t, exp2tab(stm[i])}
                 end
             end
         end
-        t = flat(t, ") ")
+        t = flat(t, ")", ns)
     elseif tag == "Invoke" then -- `Invoke{ expr `String{ <string> } expr* }
         t = {exp2tab(stm[1]), ":", name2tab(stm[2][1]), "("}
         if stm[3] then
-            for i = 3, #stm do t = {t, ", ", exp2tab(stm[i])} end
+            for i = 3, #stm do t = {t, ",", exp2tab(stm[i])} end
         end
-        t = flat(t, ") ")
+        t = flat(t, ")", ns)
     else
         error("expecting a statement, but got a " .. tag)
     end
@@ -322,23 +322,29 @@ function block2str(block)
     return {l}
 end
 
-function merge_spaces(t)
-    asset(type(o) == 'table', "wrong type, table expected")
+function merge_spaces(o)
+    assert(type(o) == 'table', "wrong type, table expected")
     local space = 0
-    for i = 1, #o do
-        if type(o[i]) == 'table' then
+    local i = 1
+    while i <= #o do
+        local item = o[i]
+        if type(item) == 'table' and type(item.space) == 'number' then
             if space > 0 then
-                o[i].space = math.max(o[i].space, space)
-                table.remove(o, i)
-                i = i-1
-            elseif o[i].space > 0 then
-                space = o[i].space
-            else
-                space = 0
+                item.space = math.max(item.space, space)
+                table.remove(o, i - 1)
+                i = i - 1
             end
+            space = item.space
+        else
+            space = 0
         end
+        i = i + 1
     end
+    return o
 end
+
+
+
 
 local function flatten_output(t)
     if type(t) ~= "table" then
@@ -372,37 +378,6 @@ function dump(o, space_nb)
                 end
             else
                 s = s .. v
-            end
-        end
-        return s
-    else
-        return tostring(o)
-    end
-end
-
-function dump_triangle(o, space_nb, base_width, multi)
-    local w = base_width
-    local c_w = w
-    if type(o) == 'table' then
-        local s = ""
-        for k, v in pairs(o) do 
-            if type(v) == 'table' then
-                if v.space > 1 then
-                    s = s.." "
-                    c_w = c_w - 1
-                else
-                    s = s..string.rep(" ", space_nb)
-                    c_w = c_w - space_nb
-                end
-            else
-                s = s .. v
-                c_w = c_w - string.len(v)
-            end
-            if c_w <= 0 then
-                s = s .. "\n"
-                w = w + base_width
-                c_w = w
-                print(w)
             end
         end
         return s
@@ -447,15 +422,15 @@ local function random_worm_fn(height, ratio, width, first_start, bits, seed)
     return {width, start}
 end
 
-function dump_circle(o, space_nb, ratio, shape_fn, ... )
+function dump_shape(o, space_nb, ratio, shape_fn, ... )
     local height = 1
     local shape = shape_fn(height, ratio, ...)
     local width = shape[1]
     local start = shape[2]
     if type(o) == 'table' then
         local s = string.rep(" ", start)
-        for k, v in pairs(o) do 
-            if type(v) == 'table' then
+        for _, v in ipairs(o) do 
+            if type(v) == 'table' and type(v.space) == 'number' then
                 if v.space > 1 then
                     s = s.." "
                     width = width - 1
@@ -483,12 +458,13 @@ function dump_circle(o, space_nb, ratio, shape_fn, ... )
 end
 
 function pp.tostring(t)
-    assert(type(t) == "table")
-    return dump_circle(flatten_output(block2str(t)), 0, 2.40, diamond_fn, 20, 10)
+    assert(type(t) =="table")
+    --return dump_shape(merge_spaces(flatten_output(block2str(t))), 0, 2.40, circle_fn, 40, 10)
+    return dump_shape(merge_spaces(flatten_output(block2str(t))), 0, 2.40, diamond_fn, 62, 10)
 end
 
 function pp.print(t)
-    assert(type(t) == "table")
+    assert(type(t) =="table")
     print(pp.tostring(t))
 end
 

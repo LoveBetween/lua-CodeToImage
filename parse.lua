@@ -23,6 +23,7 @@ local input = readAll(arg[1])
 
 local ast, error_msg = parser.parse(input, arg[1])
 local output = gpp.tostring(ast)
+writeFile(arg[2], output)
 local inputAST = pp.tostring(ast)
 
 local ast2, error_msg2 = parser.parse(output, arg[1]) -- verifying
@@ -32,7 +33,7 @@ if (error_msg2) then
     os.exit(1)
 end
 
-writeFile(arg[2], output)
+
 
 local outputAST = pp.tostring(ast2)
 if outputAST == pp.tostring(ast) then
