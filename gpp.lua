@@ -194,7 +194,7 @@ function exp2tab(exp)
     elseif tag == "Table" then -- `Table{ ( `Pair{ expr expr } | expr )* }
         t = {"{", fieldlist2tab(exp), "}", ns}
     elseif tag == "Op" then -- `Op{ opid expr expr? }
-        t = {ns, op[exp[1]], exp2tab(exp[2]), ns}
+        t = {ns, op[exp[1]], ns, exp2tab(exp[2]), ns}
         if exp[3] then
             t = {ns, exp2tab(exp[2]), op[exp[1]], exp2tab(exp[3]), ns}
         end

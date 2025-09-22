@@ -1,0 +1,8 @@
+
+** Easy fixes
+* fix spaces at the end and start of lines which are not necessary
+
+** Later
+* Implement string cutter
+* instead of just doing start and width, use a function(x, y) for each point
+* Implement justified text
