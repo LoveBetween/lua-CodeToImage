@@ -307,7 +307,8 @@ function stm2str(stm)
     elseif tag == "Invoke" then -- `Invoke{ expr `String{ <string> } expr* }
         t = {exp2tab(stm[1]), ":", name2tab(stm[2][1]), "("}
         if stm[3] then
-            for i = 3, #stm do t = {t, ",", exp2tab(stm[i])} end
+            for i = 3, #stm do t = {t,exp2tab(stm[i]),  ","} end
+            t[#t] = nil
         end
         t = flat(t, ")", ns)
     else
