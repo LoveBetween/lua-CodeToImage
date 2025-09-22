@@ -427,13 +427,16 @@ function dump_shape(o, space_nb, ratio, shape_fn, ... )
     local shape = shape_fn(height, ratio, ...)
     local width = shape[1]
     local start = shape[2]
+    local newLine = true
     if type(o) == 'table' then
         local s = string.rep(" ", start)
         for _, v in ipairs(o) do 
             if type(v) == 'table' and type(v.space) == 'number' then
                 if v.space > 1 then
-                    s = s.." "
-                    width = width - 1
+                    if not newLine then
+                        s = s.." "
+                        width = width - 1
+                    end
                 else
                     s = s..string.rep(" ", space_nb)
                     width = width - space_nb
@@ -442,8 +445,10 @@ function dump_shape(o, space_nb, ratio, shape_fn, ... )
                 s = s .. v
                 width = width - string.len(v)
             end
+            newLine = false
             if width <= 0 then
                 s = s .. "\n"
+                newLine = true
                 height = height+1
                 local shape = shape_fn(height, ratio, ...)
                 width = shape[1]
