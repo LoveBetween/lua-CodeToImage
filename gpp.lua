@@ -423,50 +423,138 @@ local function random_worm_fn(height, ratio, width, first_start, bits, seed)
     return {width, start}
 end
 
+function count_char(o)
+    local space_count = 0
+    local char_count = 0
+    for _, v in ipairs(o) do 
+        if type(v) == 'table' and type(v.space) == 'number' then
+            space_count = space_count + 1
+        else
+            char_count = char_count + string.len(v)
+        end
+    end
+    return {char_count, space_count}
+end
+
+--[[
+    A code is composed of lines, which are composed of strips, which are composed of words and spaces
+    Every strip should try to be full (maybe use backtracking or an accordeon algorithm)
+]]--
+
+function basic_shape(height)
+    local sin_value = math.floor(math.abs(math.sin(height/43.5)*43.5))
+    return {sin_value, sin_value, sin_value, sin_value, sin_value, sin_value, start_spaces = true}
+end
+
+function shape_to_line_sections(words, shape_fn, ratio, ...)
+    local strips = {}
+    local height = 1
+    local s = ""
+    local index = 1
+
+    local new_strip = true
+
+    local strip = shape_fn(height, ratio, ...)
+    local strip_index = 1
+    local state_spaces = strip.start_spaces
+    local deviation = 0
+    strip.start_spaces = nil
+    local strip_width = strip[strip_index]
+
+    while index < #words do
+        if strip_width and strip_width <= 0 then
+            strip_width = strip[strip_index]
+            strip_index = strip_index + 1
+            state_spaces = true
+        end
+        if strip_index > #strip then
+            s = s .. "\n"
+            height = height + 1
+            strip = shape_fn(height, ratio, ...)
+            strip_index = 1
+            state_spaces = strip.start_spaces
+            strip.start_spaces = nil
+            strip_width = strip[strip_index]
+        end
+
+        if state_spaces then
+            s = s..string.rep(" ", strip_width + deviation)
+            deviation = 0
+            state_spaces = false
+            strip_index = strip_index + 1
+            strip_width = strip[strip_index]
+        elseif type(words[index]) == 'table' and type(words[index].space) == 'number' then
+            if not new_strip then
+                s = s.." "
+                strip_width = strip_width - 1
+            end
+            index = index +1
+        else
+            local str_len = string.len(words[index])
+            if index+1< #words then
+                local str_len2 = 0
+                if type(words[index+1]) ~= "table" then
+                    str_len2 = str_len2 + string.len(words[index+1])
+                end
+                if strip_width < str_len + str_len2 then
+                    if strip_width-str_len < 0 then
+                        deviation = strip_width-str_len
+                    else
+                        s = s .. string.rep(" ",  strip_width-str_len)
+                        strip_width = 0
+                    end
+                end
+            end
+
+            s = s .. words[index]
+            strip_width = strip_width - str_len
+            index = index+1
+        end
+        new_strip = false
+    end
+    return s
+end
+
 function dump_shape(o, space_nb, ratio, shape_fn, ... )
     local height = 1
     local shape = shape_fn(height, ratio, ...)
     local width = shape[1]
     local start = shape[2]
     local newLine = true
-    if type(o) == 'table' then
-        local s = string.rep(" ", start)
-        for _, v in ipairs(o) do 
-            if type(v) == 'table' and type(v.space) == 'number' then
-                if v.space > 1 then
-                    if not newLine then
-                        s = s.." "
-                        width = width - 1
-                    end
-                else
-                    s = s..string.rep(" ", space_nb)
-                    width = width - space_nb
-                end
-            else
-                s = s .. v
-                width = width - string.len(v)
+    
+    local s = string.rep(" ", start)
+    for _, v in ipairs(o) do 
+        if type(v) == 'table' and type(v.space) == 'number' then
+            if not newLine then
+                s = s.." "
+                width = width - 1
             end
-            newLine = false
-            if width <= 0 then
-                s = s .. "\n"
-                newLine = true
-                height = height+1
-                local shape = shape_fn(height, ratio, ...)
-                width = shape[1]
-                start = shape[2]
-                s = s.. string.rep(" ", start)
-            end
+        else
+            s = s .. v
+            width = width - string.len(v)
         end
-        return s
-    else
-        return tostring(o)
+        newLine = false
+        if width <= 0 then
+            s = s .. "\n"
+            newLine = true
+            height = height+1
+            local shape = shape_fn(height, ratio, ...)
+            width = shape[1]
+            start = shape[2]
+            s = s.. string.rep(" ", start)
+        end
     end
+    return s
 end
 
 function pp.tostring(t)
     assert(type(t) =="table")
     --return dump_shape(merge_spaces(flatten_output(block2str(t))), 0, 2.40, circle_fn, 40, 10)
-    return dump_shape(merge_spaces(flatten_output(block2str(t))), 0, 2.40, diamond_fn, 62, 10)
+    local prepared_table = merge_spaces(flatten_output(block2str(t)))
+    -- local count = count_char(prepared_table)
+    -- print(count[1], count[2])
+    --return dump_shape(prepared_table, 0, 3, diamond_fn, 56, 10)
+    return shape_to_line_sections(prepared_table, basic_shape)
 end
 
 function pp.print(t)
